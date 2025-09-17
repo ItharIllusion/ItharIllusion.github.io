@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<title>Conditional Drag Scroll Fixed</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    cursor: grab;
+  }
+
+  /* لایه‌ی ثابت پشت همه */
+  .backmost-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -2; /* عقب‌ترین */
+    overflow: hidden;
+  }
+
+  .backmost-container video {
+    width: 120%;   /* بزرگ‌تر از صفحه */
+    height: 120%;
+    object-fit: cover;
+    position: absolute;
+    top: -10%;
+    left: -10%;
+    pointer-events: none; /* هیچ کلیکی روش اعمال نشه */
+  }
+
+  .background-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    transform: translate(0, 0);
+  }
+
+  .background-container video,
+  .background-container img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  .main-container {
+    position: relative;
+    height: 200vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transform: translate(0, 0);
+  }
+
+  .main-image {
+    max-width: 90%;
+    max-height: 90%;
+    z-index: 1;
+    display: block;
+    pointer-events: auto;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- لایه‌ی ثابت عقب -->
+<div class="backmost-container">
+  <video src="video1.mp4" autoplay loop muted></video>
+</div>
+
+<!-- لایه‌ی پس‌زمینه (قابل اسکرول عمودی مستقل + افقی مشترک) -->
+<div class="background-container" id="background">
+  <video src="video2.mp4" autoplay loop muted></video>
+  <video src="video3.mp4" autoplay loop muted></video>
+  <img src="introwords.jpg" alt="Intro Words">
+  <img src="eyeofithar.jpg" alt="Eye of Ithar">
+</div>
+
+<!-- لایه‌ی اصلی -->
+<div class="main-container" id="mainContainer">
+  <img class="main-image" id="mainImage" src="bible.jpg" alt="Bible">
+</div>
+
+<script>
+// ⚡ اسکرول کد همون قبلیه، فقط لایه‌ی جدید نیازی به دست‌کاری نداره چون ثابت می‌مونه
+const mainContainer = document.getElementById('mainContainer');
+const background = document.getElementById('background');
+const mainImage = document.getElementById('mainImage');
+
+let isDownMain = false;
+let isDownBg = false;
+let startX = 0, startY = 0;
+
+let currentTranslateMain = {x:0, y:0};
+let currentTranslateBg = {x:0, y:0};
+let sharedX = 0; // مقدار مشترک برای اسکرول افقی
+
+// --- Mouse Down ---
+mainImage.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  isDownMain = true;
+  startX = e.clientX;
+  startY = e.clientY;
+  document.body.style.cursor = 'grabbing';
+});
+
+window.addEventListener('mousedown', (e) => {
+  if (e.target !== mainImage) {
+    isDownBg = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    document.body.style.cursor = 'grabbing';
+  }
+});
+
+// --- Mouse Move ---
+window.addEventListener('mousemove', (e) => {
+  if (isDownMain) {
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+    const newX = sharedX + deltaX;
+    const newY = currentTranslateMain.y + deltaY;
+    mainContainer.style.transform = `translate(${newX}px, ${newY}px)`;
+    background.style.transform = `translate(${newX}px, ${currentTranslateBg.y}px)`;
+  } else if (isDownBg) {
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+    const newX = sharedX + deltaX;
+    const newY = currentTranslateBg.y + deltaY;
+    background.style.transform = `translate(${newX}px, ${newY}px)`;
+    mainContainer.style.transform = `translate(${newX}px, ${currentTranslateMain.y}px)`;
+  }
+});
+
+// --- Mouse Up ---
+window.addEventListener('mouseup', () => {
+  if (isDownMain) {
+    const matrixMain = new DOMMatrix(window.getComputedStyle(mainContainer).transform);
+    sharedX = matrixMain.m41;
+    currentTranslateMain.y = matrixMain.m42;
+  }
+  if (isDownBg) {
+    const matrixBg = new DOMMatrix(window.getComputedStyle(background).transform);
+    sharedX = matrixBg.m41;
+    currentTranslateBg.y = matrixBg.m42;
+  }
+  isDownMain = false;
+  isDownBg = false;
+  document.body.style.cursor = 'grab';
+});
+
+// --- Mouse Leave ---
+window.addEventListener('mouseleave', () => {
+  isDownMain = false;
+  isDownBg = false;
+  document.body.style.cursor = 'grab';
+});
+
+// --- Mobile Touch Support ---
+mainImage.addEventListener('touchstart', (e) => {
+  isDownMain = true;
+  startX = e.touches[0].clientX;
+  startY = e.touches[0].clientY;
+});
+
+mainImage.addEventListener('touchmove', (e) => {
+  if (!isDownMain) return;
+  const deltaX = e.touches[0].clientX - startX;
+  const deltaY = e.touches[0].clientY - startY;
+  const newX = sharedX + deltaX;
+  const newY = currentTranslateMain.y + deltaY;
+  mainContainer.style.transform = `translate(${newX}px, ${newY}px)`;
+  background.style.transform = `translate(${newX}px, ${currentTranslateBg.y}px)`;
+});
+
+mainImage.addEventListener('touchend', () => {
+  isDownMain = false;
+  const matrixMain = new DOMMatrix(window.getComputedStyle(mainContainer).transform);
+  sharedX = matrixMain.m41;
+  currentTranslateMain.y = matrixMain.m42;
+});
+
+window.addEventListener('touchstart', (e) => {
+  if (!e.target.closest('#mainImage')) {
+    isDownBg = true;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }
+});
+
+window.addEventListener('touchmove', (e) => {
+  if (!isDownBg) return;
+  const deltaX = e.touches[0].clientX - startX;
+  const deltaY = e.touches[0].clientY - startY;
+  const newX = sharedX + deltaX;
+  const newY = currentTranslateBg.y + deltaY;
+  background.style.transform = `translate(${newX}px, ${newY}px)`;
+  mainContainer.style.transform = `translate(${newX}px, ${currentTranslateMain.y}px)`;
+});
+
+window.addEventListener('touchend', () => {
+  if (isDownBg) {
+    const matrixBg = new DOMMatrix(window.getComputedStyle(background).transform);
+    sharedX = matrixBg.m41;
+    currentTranslateBg.y = matrixBg.m42;
+  }
+  isDownBg = false;
+});
+</script>
+
+</body>
+</html>
